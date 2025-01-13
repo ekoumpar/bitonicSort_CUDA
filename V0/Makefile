@@ -1,17 +1,14 @@
 # Compiler
-CC = gcc
-
-# Compiler flags
-CFLAGS = -std=c11 -Wall -Iinclude -O3
+CC = nvcc
 
 # Source files
-SRCS = main.c bitonicSort.c 
+SRCS = main.cu bitonicSort.cu 
 
-# Object files (replace .c with .o)
-OBJS = $(SRCS:.c=.o)
+# Object files (replace .cu with .o)
+OBJS = $(SRCS:.cu=.o)
 
 # Target executable
-TARGET = bitonic
+TARGET = cuda_bitonic
 
 # Default rule
 all: $(TARGET)
@@ -21,7 +18,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) -lm
 
 # Compile source files to object files
-%.o: %.c
+%.o: %.cu
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean up generated files

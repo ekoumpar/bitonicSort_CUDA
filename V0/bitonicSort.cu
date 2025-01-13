@@ -1,9 +1,8 @@
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <cuda.h>
 
-#include "include/bitonic.h"
+#include "bitonic.h"
 
 __global__ void exchangeKernel(int *array, int size, int group_size, int distance)
 {
@@ -14,13 +13,11 @@ __global__ void exchangeKernel(int *array, int size, int group_size, int distanc
     if (idx >= size || partner >= size) return;
     if ((!sort_descending && idx < partner) || (sort_descending && idx > partner))
     {
-	printf("Thread %d comparing idx=%d (value=%d) with partner=%d (value=%d)\n", 
-        idx, idx, array[idx], partner, array[partner]);
         // keep min elements
         if (array[idx] > array[partner])
         {
-            int temp;
-	    temp = array[idx];
+          int temp;
+	        temp = array[idx];
     	    array[idx] = array[partner];
     	    array[partner] = temp;
 	}    
@@ -30,7 +27,7 @@ __global__ void exchangeKernel(int *array, int size, int group_size, int distanc
            
 	 if (array[idx] < array[partner])
          {
-             int temp;
+            int temp;
             temp = array[idx];
             array[idx] = array[partner];
             array[partner] = temp;
@@ -53,22 +50,23 @@ void bitonicSort(int *array, int size)
         { // half distance
 
           exchangeKernel<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
-	 cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess) {
-                printf("CUDA Error: %s\n", cudaGetErrorString(err));
-            }
-	 cudaDeviceSynchronize();
+	        //debbuging
+          cudaError_t err = cudaGetLastError();
+          if (err != cudaSuccess) {
+            printf("CUDA Error: %s\n", cudaGetErrorString(err));
+          }
+	        cudaDeviceSynchronize();
         }
     }
 }
 
 void print(int *array, int size)
 {
-
     for (int i = 0; i < size; i++)
     {
         printf("%2d ", array[i]);
     }
+    printf("\n");
 }
 
 void evaluateResult(int *array, int size)
@@ -77,7 +75,6 @@ void evaluateResult(int *array, int size)
     bool is_Sorted = true;
     for (int i = 0; i < size - 1; i++)
     {
-
         if (array[i] > array[i + 1])
         {
             is_Sorted = false;
