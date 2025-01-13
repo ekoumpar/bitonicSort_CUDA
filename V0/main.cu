@@ -28,22 +28,21 @@ int main() {
     // Send array to GPU
     cudaMemcpy(GPU_array, CPU_array, size * sizeof(int), cudaMemcpyHostToDevice);
 
-    start_time = MPI_Wtime();
 
+    print(CPU_array, size);
+    printf("\n");
     // Bitonic sort in GPU
     bitonicSort(GPU_array, size);
 
     
-    end_time = MPI_Wtime();
+
 
     // Send array back to CPU
-    cudaMemcpy(GPU_array, CPU_array, size * sizeof(int), cudaMemcpyDeviceToHost);
+   cudaMemcpy(CPU_array, GPU_array, size * sizeof(int), cudaMemcpyDeviceToHost);
 
 
-    //print(CPU_array, size);
+    print(CPU_array, size);
 
-    printf("Execution time: %f seconds\n", end_time - start_time);
-    
     evaluateResult(CPU_array, size);
 
     cudaFree(GPU_array);
