@@ -4,30 +4,34 @@
 
 #include "bitonic.h"
 
+__device__ void swap(int *array, int idx, int partner)
+{
+    int temp;
+    temp = array[idx];
+    array[idx] = array[partner];
+    array[partner] = temp;
+}
+
 __global__ void exchangeKernel(int *array, int size, int group_size, int distance)
 {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+    int idx = (tid / distance) * distance * 2 + (tid % distance);
     int partner = idx ^ distance;
     bool sort_descending = idx & group_size;
 
-    if (idx < partner)
-    { // only for one partner
+    if (idx < size && partner < size && idx < partner)
+    { // ensure bounds are checked before accessing array
 
         if (!sort_descending && array[idx] > array[partner])
         {
             // keep min elements
-            int temp;
-            temp = array[idx];
-            array[idx] = array[partner];
-            array[partner] = temp;
+            swap(array, idx, partner);
         }
         if (sort_descending && array[idx] < array[partner])
         {
             // keep max elements
-            int temp;
-            temp = array[idx];
-            array[idx] = array[partner];
-            array[partner] = temp;
+            swap(array, idx, partner);
         }
     }
 }
@@ -35,8 +39,8 @@ __global__ void exchangeKernel(int *array, int size, int group_size, int distanc
 void bitonicSort(int *array, int size)
 {
     // GPU PARAMETERS
-    int threads_per_block = 1024;                                             // max threads
-    int blocks_per_grid = (size + threads_per_block - 1) / threads_per_block; // more if its not divided evenly
+    int threads_per_block = 1024;                   // max threads
+    int blocks_per_grid = size / threads_per_block; // more if its not divided evenly
 
     for (int group_size = 2; group_size <= size; group_size <<= 1)
     { // group_size doubles in each reccursion
@@ -58,7 +62,7 @@ void bitonicSort(int *array, int size)
 
 void print(int *array, int size)
 {
-    for (int i = 0; i <size; i++)
+    for (int i = 0; i < size; i++)
     {
         printf("%2d ", array[i]);
     }
