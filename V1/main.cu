@@ -5,7 +5,7 @@
 
 #include "bitonic.h"
 
-    int main()
+int main()
 {
   int q = 28;
   size_t size = 1 << q; // 2^q elements
