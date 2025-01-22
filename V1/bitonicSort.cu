@@ -12,6 +12,39 @@ __device__ void swap(int *array, int idx, int partner)
     array[partner] = temp;
 }
 
+__global__ void initialExchange(int *array, int size)
+{
+
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+    for (int group_size = 2; group_size <= 1024; group_size <<= 1)
+    {
+        for (int distance = group_size; distance > 0; distance >>= 1)
+        {
+            int idx = (tid / distance) * distance * 2 + (tid % distance);
+            int partner = idx ^ distance;
+            bool sort_descending = idx & group_size;
+
+            if (idx < size && partner < size && idx < partner)
+            { // ensure bounds are checked before accessing array
+
+                if (!sort_descending && array[idx] > array[partner])
+                {
+                    // keep min elements
+                    swap(array, idx, partner);
+                }
+                if (sort_descending && array[idx] < array[partner])
+                {
+                    // keep max elements
+                    swap(array, idx, partner);
+                }
+            }
+
+            __syncthreads();
+        }
+    }
+}
+
 __global__ void exchange_V0(int *array, int size, int group_size, int distance)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -36,14 +69,13 @@ __global__ void exchange_V0(int *array, int size, int group_size, int distance)
     }
 }
 
-__global__ void exchange_V1(int *array, int size, int group_size, int start)
+__global__ void exchange_V1(int *array, int size, int group_size)
 {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
     for (int distance = 1024; distance > 0; distance >>= 1)
     {
-        int tid = threadIdx.x;
-
-        int idx = start + (tid / distance ) * distance  * 2 + (tid % distance);
+        int idx = (tid / distance) * distance * 2 + (tid % distance);
         int partner = idx ^ distance;
         bool sort_descending = idx & group_size;
 
@@ -69,20 +101,21 @@ __global__ void exchange_V1(int *array, int size, int group_size, int start)
 __host__ void bitonicSort(int *array, int size)
 {
     // GPU PARAMETERS
-    int threads_per_block;
-    int blocks_per_grid;
+    int threads_per_block = 1024;
+    int blocks_per_grid = size / threads_per_block;
 
-    for (int group_size = 2; group_size <= size; group_size <<= 1)
+    initialExchange<<<blocks_per_grid, threads_per_block>>>(array, size);
+
+    for (int group_size = 2048; group_size <= size; group_size <<= 1)
     { // group_size doubles in each reccursion
+
         int distance = group_size >> 1;
+
+        // Handle large distances (>1024)
         while (distance > 1024)
         {
-            threads_per_block = 1024; // max threads
-            blocks_per_grid = size / threads_per_block;
-
             exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
 
-            // debbuging
             cudaError_t err = cudaGetLastError();
             if (err != cudaSuccess)
                 printf("CUDA Error: %s\n", cudaGetErrorString(err));
@@ -91,21 +124,14 @@ __host__ void bitonicSort(int *array, int size)
             distance >>= 1;
         }
 
-        threads_per_block = 1024;
-        blocks_per_grid = 1;
-        for (int chunk = 0; chunk <= size; chunk += 2048)
-        {
-            exchange_V1<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, chunk);
+        // Handle small distances (<=1024)
+        exchange_V1<<<blocks_per_grid, threads_per_block>>>(array, size, group_size);
 
-        }
-
-        // debbuging
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess)
         {
             printf("CUDA Error: %s\n", cudaGetErrorString(err));
         }
-        cudaDeviceSynchronize();
     }
 }
 
