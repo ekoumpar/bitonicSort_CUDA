@@ -28,7 +28,7 @@ V2:
 
 # Generic build rule
 build:
-	$(CC) -o $(VERSION)/$(TARGET) $(VERSION)/main.cu $(VERSION)/bitonicSort.cu -I$(VERSION) -lm
+	$(CC) -o $(VERSION)/$(TARGET) main.cu $(VERSION)/bitonicSort.cu -I$(VERSION) -lm
 	@echo "$(VERSION)" > $(LAST_VERSION_FILE)
 
 # Run the program with q specified
