@@ -43,13 +43,13 @@ __global__ void initialExchange(int *array, int size)
     int global_tid = local_tid + blockIdx.x * blockDim.x;
     int offset = blockIdx.x * blockDim.x * 2;
 
-    __shared__ int local_array[2048];
+    extern __shared__ int local_array[];
 
     load_global_to_local(array, local_array, size, local_tid, offset);
 
     for (int group_size = 2; group_size <= 1024; group_size <<= 1)
     {
-        for (int distance = group_size; distance > 0; distance >>= 1)
+        for (int distance = group_size >> 1; distance > 0; distance >>= 1)
         {
             int global_idx = (global_tid / distance) * distance * 2 + (global_tid % distance);
             int idx = (local_tid / distance) * distance * 2 + (local_tid % distance);
@@ -74,7 +74,7 @@ __global__ void initialExchange(int *array, int size)
             __syncthreads();
         }
     }
-    load_local_to_global(array, local_array, size, local_tid, global_tid);
+    load_local_to_global(array, local_array, size, local_tid, offset);
 }
 
 __global__ void exchange_V0(int *array, int size, int group_size, int distance)
@@ -107,7 +107,7 @@ __global__ void exchange_V2(int *array, int size, int group_size)
     int global_tid = local_tid + blockIdx.x * blockDim.x;
     int offset = blockIdx.x * blockDim.x * 2;
 
-    __shared__ int local_array[2048];
+    extern __shared__ int local_array[];
 
     load_global_to_local(array, local_array, size, local_tid, offset);
 
@@ -136,7 +136,7 @@ __global__ void exchange_V2(int *array, int size, int group_size)
         __syncthreads();
     }
 
-    load_local_to_global(array, local_array, size, local_tid, global_tid);
+    load_local_to_global(array, local_array, size, local_tid, offset);
 }
 
 __host__ void bitonicSort(int *array, int size)
@@ -144,35 +144,18 @@ __host__ void bitonicSort(int *array, int size)
     // GPU PARAMETERS
     int threads_per_block = 1024;
     int blocks_per_grid = size / threads_per_block;
+    int shared_mem_size = threads_per_block * 2 * sizeof(int); // Shared memory size
 
-    initialExchange<<<blocks_per_grid, threads_per_block>>>(array, size);
+    initialExchange<<<blocks_per_grid, threads_per_block, shared_mem_size>>>(array, size);
 
     for (int group_size = 2048; group_size <= size; group_size <<= 1)
-    { // group_size doubles in each reccursion
-
-        int distance = group_size >> 1;
-
-        // Handle large distances (>1024)
-        while (distance > 1024)
+    {
+        for (int distance = group_size >> 1; distance > 1024; distance >>= 1)
         {
             exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
-
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess)
-                printf("CUDA Error: %s\n", cudaGetErrorString(err));
-
             cudaDeviceSynchronize();
-            distance >>= 1;
         }
-
-        // Handle small distances (<=1024)
-        exchange_V2<<<blocks_per_grid, threads_per_block>>>(array, size, group_size);
-
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess)
-        {
-            printf("CUDA Error: %s\n", cudaGetErrorString(err));
-        }
+        exchange_V2<<<blocks_per_grid, threads_per_block, shared_mem_size>>>(array, size, group_size);
     }
 }
 

@@ -19,7 +19,7 @@ __global__ void initialExchange(int *array, int size)
 
     for (int group_size = 2; group_size <= 1024; group_size <<= 1)
     {
-        for (int distance = group_size; distance > 0; distance >>= 1)
+        for (int distance = group_size >> 1; distance > 0; distance >>= 1)
         {
             int idx = (tid / distance) * distance * 2 + (tid % distance);
             int partner = idx ^ distance;
