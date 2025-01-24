@@ -5,9 +5,9 @@
 
 #include "bitonic.h"
 
-    int main()
+int main(int argc, char *argv[])
 {
-  int q = 28;
+  int q = atoi(argv[1]);
   size_t size = 1 << q; // 2^q elements
 
   // Time variables
