@@ -1,6 +1,7 @@
-# bitonicSort_CUDA
+# Bitonic Sort implemented in CUDA
 
-## Makefile Instructions
+## How to run
+The following instructions should be executed in the parent folder of the repository, where Makefile is found.
 
 1. **Compile the program** using the following command. Subsitute <VERSION> with V0, V1 or V2:
     ```bash
@@ -12,7 +13,7 @@
     make run q=<q>
     ```
 
-3. **Expected Output** Example for V=0 and q=20:
+3. **Expected Output** Example for VERSION=V0 and q=20:
    ```bash
     Running V0 with q=20...
     Sorted array
@@ -28,16 +29,22 @@
 
 ---
 
-## Google Colab testing 
-###  V0 - 2^q ELEMENTS
+## Testing
 
-q VALUE            |     20     | 	21       | 	22      |    23	       |   24      |  25       |  26       |  27     |
+###  V0 
+#### $2^q$ Elements
+
+q                  |     20     | 	21       | 	22      |    23	       |   24      |  25       |  26       |  27     |
 -------------------|------------|------------|----------|--------------|-----------|-----------|-----------|---------| 
-EXECUTION TIME (s) | 0.013      |	0.028      | 0.057    |  0.122       |  0.257    |  0.433    |  0.823    | 1.677   |
+Execution time (s) |
+Google Collab      | 0.013      |	0.028      | 0.057    |  0.122       |  0.257    |  0.433    |  0.823    | 1.677   |
+Aristotel Cluster  | 0.089       |	0.019    | 0.036    |  0.067       |  0.133    |  0.267    |  0.552    | 1.269   |
 
-## Google Colab testing 
-### V1 - 2^q ELEMENTS
 
-q VALUE            |     20     | 	21       | 	22      |    23	       |   24      |  25       |  26       |  27     |
+###  V1
+#### $2^q$ Elements
+
+q                  |     20     | 	21       | 	22      |    23	       |   24      |  25       |  26       |  27     |
 -------------------|------------|------------|----------|--------------|-----------|-----------|-----------|---------| 
-EXECUTION TIME (s) | 0.010      |	0.021      | 0.045    |  0.096       |  0.208    |  0.358    |  0.650    | 1.262   |
+Execution time (s) |
+Google Collab      | 0.010      |	0.021      | 0.045    |  0.096       |  0.208    |  0.358    |  0.650    | 1.262 |
