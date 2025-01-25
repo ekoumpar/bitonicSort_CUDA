@@ -30,6 +30,16 @@ The following instructions should be executed in the parent folder of the reposi
 ---
 
 ## Testing
+Google Collab is using **NVIDIA Tesla T4 GPU** and Aristotle Cluster is using **NVIDIA Tesla P100 GPU** with the following specs:
+
+ GPU Type           | NVIDIA Tesla T4    |   NVIDIA Tesla P100     |
+ -------------------|--------------------|-------------------------|
+ Cores              |    2560            |    3584                 |
+ RAM                |    16GB            |    16GB                 |    
+ CUDA Version       |    7.5             |    6.0                  |
+ 
+ 
+ 
 
 ###  V0 
 #### $2^q$ Elements
