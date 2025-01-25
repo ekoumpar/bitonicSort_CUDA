@@ -19,9 +19,10 @@ __device__ void load_global_to_local(int *array, int *local_array, int size, int
     {
         local_array[local_tid] = array[local_tid + offset];
         local_array[local_tid + blockDim.x] = array[local_tid + offset + blockDim.x];
+        
+        __syncthreads();
     }
 
-    __syncthreads();
 }
 
 __device__ void load_local_to_global(int *array, int *local_array, int size, int local_tid, int offset)
@@ -31,9 +32,11 @@ __device__ void load_local_to_global(int *array, int *local_array, int size, int
     {
         array[local_tid + offset] = local_array[local_tid];
         array[local_tid + offset + blockDim.x] = local_array[local_tid + blockDim.x];
+
+        __syncthreads();
     }
 
-    __syncthreads();
+   
 }
 
 __global__ void initialExchange(int *array, int size)
@@ -47,7 +50,7 @@ __global__ void initialExchange(int *array, int size)
 
     load_global_to_local(array, local_array, size, local_tid, offset);
 
-    for (int group_size = 2; group_size <= 1024; group_size <<= 1)
+    for (int group_size = 2; group_size <= 2048; group_size <<= 1)
     {
         for (int distance = group_size >> 1; distance > 0; distance >>= 1)
         {
@@ -69,9 +72,11 @@ __global__ void initialExchange(int *array, int size)
                     // keep max elements
                     swap(local_array, idx, partner);
                 }
+
+                __syncthreads();
             }
 
-            __syncthreads();
+            
         }
     }
     load_local_to_global(array, local_array, size, local_tid, offset);
@@ -131,9 +136,11 @@ __global__ void exchange_V2(int *array, int size, int group_size)
                 // keep max elements
                 swap(local_array, idx, partner);
             }
+
+            __syncthreads();
         }
 
-        __syncthreads();
+        
     }
 
     load_local_to_global(array, local_array, size, local_tid, offset);
@@ -148,12 +155,11 @@ __host__ void bitonicSort(int *array, int size)
 
     initialExchange<<<blocks_per_grid, threads_per_block, shared_mem_size>>>(array, size);
 
-    for (int group_size = 2048; group_size <= size; group_size <<= 1)
+    for (int group_size = 4096; group_size <= size; group_size <<= 1)
     {
         for (int distance = group_size >> 1; distance > 1024; distance >>= 1)
         {
             exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
-            cudaDeviceSynchronize();
         }
         exchange_V2<<<blocks_per_grid, threads_per_block, shared_mem_size>>>(array, size, group_size);
     }

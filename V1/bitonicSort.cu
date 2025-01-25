@@ -17,7 +17,7 @@ __global__ void initialExchange(int *array, int size)
 
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    for (int group_size = 2; group_size <= 1024; group_size <<= 1)
+    for (int group_size = 2; group_size <= 2048; group_size <<= 1)
     {
         for (int distance = group_size >> 1; distance > 0; distance >>= 1)
         {
@@ -38,9 +38,9 @@ __global__ void initialExchange(int *array, int size)
                     // keep max elements
                     swap(array, idx, partner);
                 }
-            }
 
-            __syncthreads();
+                __syncthreads();
+            }
         }
     }
 }
@@ -92,9 +92,9 @@ __global__ void exchange_V1(int *array, int size, int group_size)
                 // keep max elements
                 swap(array, idx, partner);
             }
-        }
 
-        __syncthreads();
+            __syncthreads();
+        }
     }
 }
 
@@ -106,32 +106,17 @@ __host__ void bitonicSort(int *array, int size)
 
     initialExchange<<<blocks_per_grid, threads_per_block>>>(array, size);
 
-    for (int group_size = 2048; group_size <= size; group_size <<= 1)
+    for (int group_size = 4096; group_size <= size; group_size <<= 1)
     { // group_size doubles in each reccursion
 
-        int distance = group_size >> 1;
-
-        // Handle large distances (>1024)
-        while (distance > 1024)
+        for( int distance = group_size >> 1; distance > 1024; distance >>=1)
         {
+            // Handle large distances (>1024)
             exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
-
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess)
-                printf("CUDA Error: %s\n", cudaGetErrorString(err));
-
-            cudaDeviceSynchronize();
-            distance >>= 1;
         }
 
         // Handle small distances (<=1024)
         exchange_V1<<<blocks_per_grid, threads_per_block>>>(array, size, group_size);
-
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess)
-        {
-            printf("CUDA Error: %s\n", cudaGetErrorString(err));
-        }
     }
 }
 

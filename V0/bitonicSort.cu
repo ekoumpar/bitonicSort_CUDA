@@ -12,7 +12,7 @@ __device__ void swap(int *array, int idx, int partner)
     array[partner] = temp;
 }
 
-__global__ void exchangeKernel(int *array, int size, int group_size, int distance)
+__global__ void exchange_V0(int *array, int size, int group_size, int distance)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -39,24 +39,13 @@ __global__ void exchangeKernel(int *array, int size, int group_size, int distanc
 void bitonicSort(int *array, int size)
 {
     // GPU PARAMETERS
-    int threads_per_block = 1024;                   // max threads
-    int blocks_per_grid = size / threads_per_block; // more if its not divided evenly
+    int threads_per_block = 1024;   //max threads per block
+    int blocks_per_grid = size / threads_per_block; 
 
     for (int group_size = 2; group_size <= size; group_size <<= 1)
-    { // group_size doubles in each reccursion
-
+    { 
         for (int distance = group_size >> 1; distance > 0; distance >>= 1)
-        { // half distance
-
-            exchangeKernel<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
-            // debbuging
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess)
-            {
-                printf("CUDA Error: %s\n", cudaGetErrorString(err));
-            }
-            cudaDeviceSynchronize();
-        }
+            exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);
     }
 }
 
