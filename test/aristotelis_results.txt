@@ -1,1 +1,115 @@
-//TODO: ADD ARISTOTELIS RESULTS HERE
+Test results
+
+V0 TESTING
+
+Running V0 with q=20...
+Sorted array
+Execution time: 0.013147 s
+
+Running V0 with q=21...
+Sorted array
+Execution time: 0.019323 s
+
+Running V0 with q=22...
+Sorted array
+Execution time: 0.035693 s
+
+Running V0 with q=23...
+Sorted array
+Execution time: 0.066812 s
+
+Running V0 with q=24...
+Sorted array
+Execution time: 0.133194 s
+
+Running V0 with q=25...
+Sorted array
+Execution time: 0.267485 s
+
+Running V0 with q=26...
+Sorted array
+Execution time: 0.551933 s
+
+Running V0 with q=27...
+Sorted array
+Execution time: 1.261810 s
+
+V1 TESTING
+
+Running V1 with q=20...
+Sorted array
+Execution time: 0.018012 s
+
+Running V1 with q=21...
+Sorted array
+Execution time: 0.017819 s
+
+Running V1 with q=22...
+Sorted array
+Execution time: 0.030247 s
+
+Running V1 with q=23...
+Sorted array
+Execution time: 0.061345 s
+
+Running V1 with q=24...
+Sorted array
+Execution time: 0.119780 s
+
+Running V1 with q=25...
+Sorted array
+Execution time: 0.236168 s
+
+Running V1 with q=26...
+Sorted array
+Execution time: 0.506228 s
+
+Running V1 with q=27...
+Sorted array
+Execution time: 1.046886 s
+
+V2 TESTING 
+
+Running V2 with q=20...
+Sorted array
+Execution time: 0.012206 s
+
+Running V2 with q=21...
+Sorted array
+Execution time: 0.018887 s
+
+Running V2 with q=22...
+Sorted array
+Execution time: 0.033829 s
+
+Running V2 with q=23...
+Sorted array
+Execution time: 0.066934 s
+
+Running V2 with q=24...
+Sorted array
+Execution time: 0.144393 s
+
+Running V2 with q=25...
+Sorted array
+Execution time: 0.262563 s
+
+Running V2 with q=26...
+Sorted array
+Execution time: 0.571653 s
+
+Running V2 with q=27...
+Sorted array
+Execution time: 1.170857 s
+
+
+
+
+
+
+
+
+
+
+
+
