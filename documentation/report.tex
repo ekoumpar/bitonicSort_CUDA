@@ -1,0 +1,204 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\geometry{top=1in, bottom=1in, left=1in, right=1in}
+
+% Define colors for a fresh, readable style
+\definecolor{keywordcolor}{RGB}{0, 102, 204}   % Keywords (blue)
+\definecolor{stringcolor}{RGB}{183, 28, 28}    % Strings (red)
+\definecolor{commentcolor}{RGB}{85, 107, 47}  % Comments (green)
+\definecolor{bgcolor}{RGB}{245, 245, 245}      % Light gray background
+\definecolor{numbercolor}{RGB}{150, 150, 150}  % Line numbers
+
+% Configuration for code listings
+\lstset{
+    backgroundcolor=\color{bgcolor},     % Background color
+    basicstyle=\ttfamily\footnotesize,   % Code font and size
+    keywordstyle=\color{keywordcolor}\bfseries, % Bold keywords
+    stringstyle=\color{stringcolor},     % String color
+    commentstyle=\color{commentcolor}\itshape, % Italic comments
+    numberstyle=\color{numbercolor}\tiny, % Line numbers
+    numbers=left,                        
+    stepnumber=1,                        
+    breaklines=true,                     
+    showstringspaces=false,              
+    frame=single,                        
+    rulecolor=\color{gray},              % Frame color
+    tabsize=4,
+    captionpos=b,                        
+    xleftmargin=1em,
+    framexleftmargin=0em,
+}
+
+\title{Implementation and Performance Analysis of Bitonic Sort using CUDA}
+
+\author{
+    \small Aristotle University of Thessaloniki - Department of Electrical and Computer Engineering \\[0.5em]
+    \small Parallel and Distributed Systems\\[1.5em]
+    Koumparidou Eleni and Maria Sotiria Kostomanolaki \\[1em]
+}
+\date{January 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This project implements a parallel sorting program using \textbf{CUDA}, based on the Bitonic Sort algorithm. The program sorts $N = 2^q$ integers in ascending order, leveraging GPU parallelism to accelerate the sorting process. Three versions of the algorithm (V0, V1, V2) are developed, each introducing optimizations to improve efficiency. The implementation combines thread-level parallelism, shared memory usage, and kernel synchronization to achieve high-performance sorting. The program validates correctness and compares execution times for different input sizes ($q \in [20, 27]$) against the quickSort (\texttt{qSort}) algorithm. Performance tests on the Aristotelis cluster highlight the speedup gains achieved by GPU parallelization and demonstrate the impact of CUDA optimizations on sorting efficiency.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+Before presenting the implementation, we provide an overview of the Bitonic Sort algorithm and the optimization approaches explored in this assignment. Three progressively improved versions of the algorithm are introduced, each leveraging CUDA's capabilities to enhance sorting performance.
+
+
+\subsection{Background: Bitonic Sort Algorithm}  
+\textbf{Bitonic Sort} is a sorting algorithm that recursively transforms an unsorted sequence into a bitonic sequence. A \textbf{bitonic sequence} is a sequence of numbers that first monotonically increases and then monotonically decreases (or vice versa). It consists of two main steps: 
+\begin{enumerate}
+ \item \textbf{Bitonic Merge:} This step takes a bitonic sequence and produces a fully sorted sequence by separating the elements into two subsequences containing minima and maxima, based on pairwise comparisons. The process is recursively repeated for each half. The time complexity of Bitonic Merge is \(O(n \log n)\).  
+
+\item \textbf{Bitonic Sort:} This recursively divides the input sequence, sorting one half in ascending order and the other in descending order to form a bitonic sequence. Bitonic Merge is then applied to produce the final sorted result. The overall time complexity of Bitonic Sort is \(O(n (\log n)^2)\).  
+\end{enumerate}
+For the C implementation of the serial algorithm and a visualization, you can refer to the following excellent resource \cite{sortvisualizer}.
+
+\subsubsection*{Key Terms}
+The following key terms will be used throughout the report:
+\begin{itemize}
+    \item \textbf{group\_size}: It represents the amount of elements from the array that will follow the same sorting pattern for each pass of the Bitonic Sort algorithm. Initially set to 2, the group\_size doubles with each iteration, and the distance between elements starts at \(\frac{\text{group\_size}}{2}\). 
+    \item \textbf{distance}: The gap between elements that need to be compared during each sorting step. The distance starts at \(\frac{\text{group\_size}}{2}\) and halves as the algorithm progresses.
+    \item \textbf{partner}: The element paired with the chosen element for the comparison.
+    \item \textbf{array}: The collection of elements being sorted by the Bitonic Sort algorithm, typically stored in global memory on the GPU.
+    \item \textbf{threads}: The individual units of execution within a CUDA block. Threads work in parallel to process elements in the array.
+    \item \textbf{blocks}: Groups of threads in CUDA. A block can hold up to 1024 threads, and the threads within a block cooperate to perform part of the sorting task.
+\end{itemize}
+
+\subsection{Version Objectives}
+
+Due to its structured and predictable data flow, Bitonic Sort is particularly well-suited for parallel implementations. The goal of this project is to explore different strategies for parallelizing the Bitonic Sort algorithm using CUDA. Each version introduces distinct optimizations, leveraging CUDA features to enhance performance on the GPU.
+
+\subsubsection{Version 0: Basic Parallel Implementation}
+
+\textbf{Main objective of V0:} To introduce the fundamentals of parallel programming with CUDA.
+
+Version V0 demonstrates the basic parallelization of the Bitonic Sort algorithm using CUDA. It introduces core concepts such as kernel execution, thread management, and the use of thread IDs to perform element exchanges. This version serves as an introduction to parallel processing on the GPU, providing a foundation for more advanced optimizations in later versions.
+
+\subsubsection{Version 1: Local Block Synchronization}
+
+\textbf{Main objective of V1:} To optimize synchronization within blocks and reduce global synchronization overhead.
+
+Version V1 improves on V0 by introducing local block synchronization. It utilizes the concept of thread blocks to minimize global synchronization costs, performing exchanges within individual blocks when possible. This version leverages CUDA’s block-level parallelism to improve performance, particularly for smaller distances, and reduces the need for global synchronization, which is crucial for scalability.
+
+\subsubsection{Version 2: Shared Memory Optimization}
+
+\textbf{Main objective of V2:} To optimize memory access by using shared memory for faster data retrieval.
+
+Version V2 further optimizes the algorithm by using shared memory within each block. This reduces the reliance on global memory, allowing faster data access and improving performance. By using CUDA’s shared memory feature, this version minimizes memory access latency, resulting in a more efficient parallel sorting process, especially for larger datasets.
+
+\section{Algorithm Description}
+
+The main function of the implementation starts by allocating memory on both the CPU and GPU for an array of size \(2^q\), where \(q\) is specified by the user at the \texttt{make run} command and ranges from 20 to 27. This dual memory allocation is essential because the CPU and GPU have separate memory spaces. A CPU (host) function can only access CPU memory, while GPU functions (kernels) can only access GPU memory. Therefore, two separate arrays are required: one on the CPU and one on the GPU. 
+
+After memory allocation, the CPU array is initialized with random integers, and the data is copied to the GPU. The function \texttt{bitonicSort()} is then called to sort the elements. The implementation of this function varies depending on the selected version (V0, V1, or V2). 
+
+Once the sorting operation is completed, the results are copied back to the CPU. Finally, the program evaluates the correctness of the sorting operation and calculates the execution time.
+
+The following subsections describe the differences between each version of the algorithm and the CUDA features utilized.
+
+\subsection{V0: Basic Parallel Implementation}
+
+\begin{lstlisting}[language=C]
+void bitonicSort(int *array, int size)
+{
+    // GPU PARAMETERS
+    int threads_per_block = 1024;  
+    int blocks_per_grid = size / threads_per_block; 
+
+    for (int group_size = 2; group_size <= size; group_size <<= 1){ 
+        for (int distance = group_size >> 1; distance > 0; distance >>= 1)
+            exchange_V0<<<blocks_per_grid, threads_per_block>>>(array, size, group_size, distance);}
+    }
+\end{lstlisting}
+
+This version of the CUDA Bitonic Sort algorithm introduces a straightforward approach to parallel sorting using GPU threads. The main idea is to assign each thread the task of comparing and potentially swapping two elements in the array. This is done using the \texttt{exchange\_V0} kernel function.
+
+\begin{lstlisting}[language=C]
+    __global__ void exchange_V0(int *array, int size, int group_size, int distance) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int idx = (tid / distance) * distance * 2 + (tid % distance);
+    int partner = idx ^ distance;
+    bool sort_descending = idx & group_size;
+
+    if (idx < size && partner < size && idx < partner){ 
+        if (!sort_descending && array[idx] > array[partner]){
+            swap(array, idx, partner);  // keep min elements   }
+        if (sort_descending && array[idx] < array[partner]) {
+            swap(array, idx, partner);   // keep max elements  }
+    }
+}
+\end{lstlisting}
+
+\subsubsection*{Index Calculation}
+
+A critical aspect of this approach is manually assigning elements to threads by calculating the array index (\texttt{idx}) as a function of the thread ID (\texttt{tid}). This calculation is not automatically managed by the hardware but instead requires explicit computation by the programmer and is done as follows:
+
+\begin{lstlisting}[language=C]
+int idx = (tid / distance) * distance * 2 + (tid % distance);
+\end{lstlisting}
+
+Here's a breakdown of the formula:
+\begin{itemize}
+    \item \texttt{(tid / distance)}: Computes which block the thread belongs to for this particular step of the sorting process.
+    \item \texttt{* distance * 2}: Accounts for the fact that comparisons are made between pairs separated by twice the \texttt{distance}.
+    \item \texttt{(tid \% distance)}: Identifies the thread’s relative position within its block.
+\end{itemize}
+
+This formula is correct because it guarantees a unique index for each thread, ensuring that every element in the array is correctly mapped for comparison during each stage of the bitonic merge process.
+
+\subsubsection*{Swapping Elements on the GPU}
+
+Swapping two elements is a crucial part of sorting. On the GPU, swaps are performed using the following device function:
+
+\begin{lstlisting}[language=C]
+__device__ void swap(int *array, int idx, int partner) {
+    int temp;
+    temp = array[idx];
+    array[idx] = array[partner];
+    array[partner] = temp;
+}
+\end{lstlisting}
+
+This function will be reused across all versions and will not be explained again in subsequent sections.
+
+\subsubsection*{Synchronization Overhead}
+
+In this version, every kernel launch requires full global synchronization across the GPU. This means the program must wait for all threads to finish their comparisons and swaps before proceeding to the next distance in the sorting step. This approach is not the most efficient. The next version (V1) addresses this by optimizing synchronization through the use of local block synchronization mechanisms.
+
+\subsection{V1: Local Block Synchronization}
+
+
+
+\subsection{V2: Shared Memory Optimization}
+
+
+
+
+\section{Performance Analysis}
+% Include benchmark results and graphs
+
+\section{Conclusion}
+% Summarize findings 
+
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{sortvisualizer} \textit{Bitonic Sort Visualization}. Available \href{https://www.sortvisualizer.com/bitonicsort/}{here}.
+\end{thebibliography}
+
+\end{document}
