@@ -1,0 +1,10 @@
+Testing results
+
+q=20	Execution time: 0.203257 seconds 
+q=21	Execution time: 0.433413 seconds 
+q=22	Execution time: 0.931642 seconds 
+q=23	Execution time: 1.831812 seconds 
+q=24	Execution time: 2.941607 seconds 
+q=25	Execution time: 6.077412 seconds 
+q=26	Execution time: 9.561333 seconds 
+q=27	Execution time: 19.102546 seconds 
