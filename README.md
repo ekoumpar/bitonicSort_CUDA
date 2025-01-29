@@ -1,9 +1,19 @@
 # Bitonic Sort implemented in CUDA
 
-## How to run
+## Project Description
+
+This project implements a parallel sorting program using **CUDA**, based on the Bitonic Sort algorithm. The program sorts $N = 2^q$ integers in ascending order, leveraging GPU parallelism to accelerate the sorting process. Three versions of the algorithm (V0, V1, V2) are developed, each introducing optimizations to improve efficiency. 
+
+The implementation combines thread-level parallelism, shared memory usage, and kernel synchronization to achieve high-performance sorting. The program validates correctness and compares execution times for different input sizes ($q \in [20, 27]$) against the quickSort (qSort) algorithm. A summary of the results can be seen below. 
+
+For a detailed analysis of the algorithm and results, refer to the project [report](documentation/report.pdf)
+
+---
+
+## Instructions
 The following instructions should be executed in the parent folder of the repository, where Makefile is found.
 
-1. **Compile the program** using the following command. Subsitute <VERSION> with V0, V1 or V2:
+1. **Compile the program** using the following command. Subsitute <VERSION> with V0, V1, V2 or qSort:
     ```bash
     make <VERSION>
     ```
@@ -29,8 +39,9 @@ The following instructions should be executed in the parent folder of the reposi
 
 ---
 
-## Testing
-Google Collab is using **NVIDIA Tesla T4 GPU** and Aristotle Cluster is using **NVIDIA Tesla P100 GPU** with the following specs:
+## Results Summary
+
+This project was tested using **Google Colab** and the and **Aristotle Cluster**. Google Colab is using **NVIDIA Tesla T4 GPU** and Aristotle Cluster is using **NVIDIA Tesla P100 GPU** with the following specs:
 
  GPU Type           | NVIDIA Tesla T4    |   NVIDIA Tesla P100     |
  -------------------|--------------------|-------------------------|
@@ -39,7 +50,7 @@ Google Collab is using **NVIDIA Tesla T4 GPU** and Aristotle Cluster is using **
  CUDA Version       |    7.5             |    6.0                  |
  
  
- 
+ Below is a summary of the testing results:
 
 ###  V0 
 
@@ -66,5 +77,10 @@ Execution time (s) |
 Google Collab      |  0.011     |	0.024    | 0.052    |   0.112      |  0.238    |   0.418   |  0.708    |  1.390  |
 Aristotel Cluster  |  0.012     |	0.019    | 0.034    |  0.067       |  0.135    |  0.262    |  0.571    |  1.170  |     
 
+For a detailed analysis please refer to the project report.
 
+---
 
+## Credits 
+
+Written by Koumparidou Eleni and Kostomanolaki Maria Sotiria in January 2025.
