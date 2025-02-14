@@ -14,20 +14,17 @@ __device__ void swap(int *array, int idx, int partner)
 
 __device__ void load_global_to_local(int *array, int *local_array, int size, int local_tid, int offset)
 {
-
     if (local_tid + offset < size && local_tid + offset + blockDim.x < size)
     {
         local_array[local_tid] = array[local_tid + offset];
         local_array[local_tid + blockDim.x] = array[local_tid + offset + blockDim.x];
-        
+
         __syncthreads();
     }
-
 }
 
 __device__ void load_local_to_global(int *array, int *local_array, int size, int local_tid, int offset)
 {
-
     if (local_tid + offset < size && local_tid + offset + blockDim.x < size)
     {
         array[local_tid + offset] = local_array[local_tid];
@@ -35,13 +32,10 @@ __device__ void load_local_to_global(int *array, int *local_array, int size, int
 
         __syncthreads();
     }
-
-   
 }
 
 __global__ void initialExchange(int *array, int size)
 {
-
     int local_tid = threadIdx.x;
     int global_tid = local_tid + blockIdx.x * blockDim.x;
     int offset = blockIdx.x * blockDim.x * 2;
@@ -72,11 +66,8 @@ __global__ void initialExchange(int *array, int size)
                     // keep max elements
                     swap(local_array, idx, partner);
                 }
-
                 __syncthreads();
             }
-
-            
         }
     }
     load_local_to_global(array, local_array, size, local_tid, offset);
@@ -139,8 +130,6 @@ __global__ void exchange_V2(int *array, int size, int group_size)
 
             __syncthreads();
         }
-
-        
     }
 
     load_local_to_global(array, local_array, size, local_tid, offset);

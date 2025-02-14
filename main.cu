@@ -53,6 +53,9 @@ int main(int argc, char *argv[])
   evaluateResult(CPU_array, size);
   printf("Execution time: %f s", exe_time / 1000);
 
+  cudaEventDestroy(start);
+  cudaEventDestroy(end);
+
   cudaFree(GPU_array);
   free(CPU_array);
 
