@@ -53,7 +53,6 @@ This project implements a parallel sorting algorithm using \textbf{CUDA}, based 
 \end{abstract}
 
 \tableofcontents
-\newpage
 
 \section{Introduction}
 Before presenting the implementation, we provide an overview of the Bitonic Sort algorithm and the optimization approaches explored in this assignment. Three progressively improved versions of the algorithm are introduced, each leveraging CUDA's capabilities to enhance sorting performance.
@@ -82,16 +81,12 @@ The following key terms will be used throughout the report:
 \end{itemize}
 
 \subsection{CUDA Memory Model Overview}
-Each Version is based on a different type of CUDA memory in order to reduce latency. We will use the following, that can be seen also as a diagram in \ref{fig:CUDA}.
+In this implementation, different versions of the algorithm utilize different types of CUDA memory (see Figure \ref{fig:CUDA}) to optimize performance:  
 
-\begin{itemize}
-    \item \textbf{Global Memory}: Every grid, block or thread have access to it.
-    \item \textbf{Local Memory}: The threads within the same block share the local memory.
-    \item \textbf{Shared Memory}: The threads within the same block have access to shared memory. It has smaller latency than other two memories.
-
-    
-\end{itemize}
-
+\begin{itemize}  
+    \item \textbf{Global Memory}: Used in Versions 0 and 1. It is accessible by all threads across all blocks but has high latency.
+    \item \textbf{Shared Memory}: Introduced in Version 2. Shared memory is only accessible within a block, requiring careful data management.  
+\end{itemize}  
 
 \begin{figure}[H]
     \centering
@@ -99,11 +94,6 @@ Each Version is based on a different type of CUDA memory in order to reduce late
     \caption{CUDA Memory Model}
     \label{fig:CUDA}
 \end{figure}
-
-
-
-
-
 
 \section{Algorithm Description}
 
@@ -150,10 +140,6 @@ void bitonicSort(int *array, int size)
     }
 \end{lstlisting}
 
- 
-
-
-
 \subsubsection*{Index Calculation}
 
 A critical aspect of this approach is to assign elements to threads by calculating the array index (\texttt{idx}) as a function of the current thread ID (\texttt{tid}). This management is not handled by CUDA, so it is calculated by the following expression:
@@ -161,7 +147,7 @@ A critical aspect of this approach is to assign elements to threads by calculati
 \begin{lstlisting}[language=C]
 int idx = (tid / distance) * distance * 2 + (tid % distance);
 \end{lstlisting}
-
+\newpage
 Here is a breakdown of the formula:
 \begin{itemize}
     \item \texttt{(tid / distance)}: Computes which block the thread belongs to for this particular step of the sorting process.
@@ -191,18 +177,17 @@ In this version, every kernel call requires global synchronization across the GP
 
 \subsection{V1: Local Block Synchronization}
 
-Version V1 aims to improve the execution time of the algorithm developed in Version 0 by reducing the global synchronization cost. To achieve this, we take advantage of the local block synchronization, in which the threads inside the same block can be synchronized at a lower cost. 
+Version 1 aims to improve the execution time of the algorithm developed in Version 0 by reducing the global synchronization overhead. To achieve this, we take advantage of the local block synchronization, in which the threads inside the same block can be synchronized at a lower cost. 
 
-The main idea is that, when the size of the array fits inside only one block, we call another kernel (\texttt{exchange\_V1}) that can make the whole exchange for all the distances for a specific group\_size at once. That means that if we have an array with 2048 elements, which needs 1024 comparisons in every stage of the sorting, it will be sorted with only one call.
+The main idea is that, when the array fits within a single block, we can process all the required exchanges for a given group\_size with \textbf{a single kernel call}. For example, if the array contains 2048 elements, we need to perform 1024 comparisons. In Version 0, this would involve multiple kernel launches, each handling a specific \texttt{distance}. In Version 1, the entire sorting operation for that \texttt{group\_size} can be completed in a single kernel call, significantly reducing synchronization overhead. To achieve this we introduce the \texttt{exchange\_V1} kernel. 
 
 \subsubsection*{Sorting Overview}
-In order to use the property mentioned before, we rearrange the initial code (V0) using three kernels for the sorting process as is shown in Listing \ref{lst:bitSort1}:
+In order to use the property mentioned before, \texttt{bitonicSort} is modified to use the following three kernels, also shown in Listing \ref{lst:bitSort1}:
 
 \begin{itemize}
     \item \textbf{Initial sorting}: We make the exchanges for all groups of size less than 2048 using \texttt{initialExchange}. 
-    \item \textbf{Exchanges for greater distances than 1024}: After the initial sorting when the distance is greater than 1024 we use \texttt{exchange\_V0} kernel (implemented in Version 0).
-    \item \textbf{Exchanges for smaller distances than 1024}:
-    After the initial sorting when the distance is smaller than 1024 or equal to we use \texttt{exchange\_V1} kernel.
+    \item \textbf{Exchanges for distances greater than 1024}: After the initial sorting, when the groups become larger than 2048 and the distances become greater than 1024 we use \texttt{exchange\_V0} kernel (implemented in Version 0) to handle large distances (>1024).
+    \item \textbf{Exchanges for distances smaller than 1024}: Following the case explained above, we use the \texttt{exchange\_V1} kernel to handle small distances (<=1024).
     
 \end{itemize}
 
@@ -231,9 +216,9 @@ In order to use the property mentioned before, we rearrange the initial code (V0
 \end{lstlisting}
 
 \subsubsection*{Initial Exchange}
-As we mentioned before the sorting algorithm starts by sorting small group sizes and doubles the \texttt{group\_size} until it reaches the full size of the array. This means that we can sort all groups until the group consists of 2048 elements. This reaches the limit of local block synchronization because the distance will start decreasing from distance of 1024, requiring 1024 exchanges for every distance, which can be managed by 1024 threads within a block. In the next recursion the distance will start from 2048, which requires 2048 threads for the exchange process divided into two blocks, that can be synchronized only from the global memory.
+As mentioned before, the algorithm starts by sorting small group sizes and doubles the \texttt{group\_size} until it reaches the full size of the array.This means that we can sort all groups until the group consists of 2048 elements optimally, because the distance will never exceed 1024, thus fulfilling the local block synchronization requirement. This is done using a single call of the \texttt{initialExchange} kernel function presented in Listing \ref{lst:initExchange}. 
 
-At the first part of this sorting we make the exchanges for all group sizes until 2048 using \texttt{initialExchange} function presented in Listing \ref{lst:initExchange}. This requires only one call of \texttt{initialExchange} in \texttt{bitonicSort}. After every exchange we call \texttt{\_\_syncthreads} function, so that all the threads within a block are up to date.
+In this implementation, we call the \texttt{\_\_syncthreads()} function after each exchange to ensure that all threads within a block have completed their operations and are working with the latest data.
 \\
 \begin{lstlisting}[ caption={Initial Exchange}, label={lst:initExchange}]
 __global__ void initialExchange(int *array, int size)
@@ -269,9 +254,14 @@ __global__ void initialExchange(int *array, int size)
 }
 \end{lstlisting}
 
+Once this kernel completes its execution, the next step of the Bitonic Sort doubles the group size, exceeding 2048 elements. At this stage (4096), the distance starts at 2048, requiring 2048 threads for the exchange process, which are now divided into two blocks, making us rely on global memory for coordination. From this point forward, and until the array is fully sorted, large distances (>1024) will be handled by \texttt{exchange\_V0} and smaller distances (<=1024) by \texttt{exchange\_V1}.
+
 \subsubsection*{V1 Exchange}
-The only difference between the V0 and the V1 exchange is that there is a \texttt{for} loop inside the kernel so that all the exchanges until distance of 1024 happen at one kernel call, as it is shown in Listing \ref{lst:V1_ex}. A \texttt{\_\_syncthreads} call is again necessary after every exchange to ensure that all threads are updated.
-\\
+
+Version 1 operates similarly to the initial exchange phase of the algorithm, with one key difference: it takes \texttt{group\_size} as an input to determine whether elements should be sorted in ascending or descending order, therefore eliminating the outer \texttt{for} loop.  
+
+The remaining \texttt{for} loop is the main improvement over Version 0, as Version 1 performs all exchanges for distances up to 1024 within a single kernel call, as shown in Listing \ref{lst:V1_ex}. A \texttt{\_\_syncthreads()} call is placed after every exchange to ensure that all threads within a block have completed their exchanges before proceeding to the next.
+\newpage
 \begin{lstlisting}[caption={V1 Exchange algorithm}, label={lst:V1_ex}]  
 __global__ void exchange_V1(int *array, int size, int group_size)
 {
@@ -303,19 +293,21 @@ __global__ void exchange_V1(int *array, int size, int group_size)
 }
 \end{lstlisting}
 
+\subsubsection*{Global Memory Latency}
+
+Although Version 1 reduces synchronization overhead by utilizing local block synchronization, it still relies entirely on global memory for data access. Since global memory has high latency, frequent memory accesses can slow down performance. The goal of the next version (V2) is to address this issue by utilizing shared memory, which allows faster data exchange within thread blocks and reduces the need for costly global memory accesses.
+
 \subsection{V2: Shared Memory Optimization}
-V1 Version has already significant improvement in comparison to V0. The goal of V2 Version is to improve the performance of our algorithm even more using the shared memory provided by CUDA.
+Version 2 builds upon the optimizations introduced in V1 by utilizing \textbf{CUDA’s shared memory}.
 
 \subsubsection*{Shared Memory}
-Shared memory is a memory provided by CUDA available for all threads within a block. The difference between shared memory and global or local memory is that threads have much easier and quicker access to shared memory. In fact, shared memory latency is roughly 100x lower than uncached global memory latency when no bank conflicts occur. 
+Shared memory in CUDA is accessible by all threads within a block. Compared to global memory, shared memory provides faster access. In fact, shared memory latency is roughly 100x lower than uncached global memory latency when no bank conflicts occur. 
 
-\subsubsection*{Initial and V2 Exchange}
-To use shared memory feature we adjust \texttt{initialExchange} and \texttt{exchange\_V1} kernel. To access an array through shared memory, we have to make a copy of the array from global memory to shared memory. We use three variables to handle the access of data:
-
+To access an array through shared memory, we have to make a copy of the array from global memory to shared memory. We use three key variables:
 \begin{itemize}
     \item \textbf{Local Thread Id}: The Id of a thread in shared memory.
     \item \textbf{Global Thread Id}: The position of an element in the global array.
-    \item \textbf{Offset}: The distance from the first chunk of 2048 elements in the shared memory.
+    \item \textbf{Offset}: The number of elements to skip in the global array because they belong to a different block, as each block loads 2048 consecutive elements into shared memory.
 \end{itemize}
 
 \begin{lstlisting}
@@ -323,9 +315,9 @@ To use shared memory feature we adjust \texttt{initialExchange} and \texttt{exch
     int global_tid = local_tid + blockIdx.x * blockDim.x;
     int offset = blockIdx.x * blockDim.x * 2;
 \end{lstlisting}
-
-We use the following two functions to load the array in shared memory and vice versa.
-\begin{lstlisting}
+To copy the data to and from shared memory, we use the two helper functions as shown in Listing \ref{lst:transfer}. The functions \texttt{load\_global\_to\_local} and \texttt{load\_local\_to\_global} handle the transfer of data between global and shared memory. By utilizing the variables explained above, we ensure that each block loads its specific 2048 elements from the global memory into shared memory correctly without overlap and vice versa.
+\\
+\begin{lstlisting} [caption={Algorithm to handle transfer of data}, label={lst:transfer}]
 __device__ void load_global_to_local(int *array, int *local_array, int size, int local_tid, int offset)
 {
     if (local_tid + offset < size && local_tid + offset + blockDim.x < size)
@@ -349,7 +341,8 @@ __device__ void load_local_to_global(int *array, int *local_array, int size, int
 }
 \end{lstlisting}
 
-We adjust \texttt{initialExchange} of V1 Version algorithm, so that we determine the index of the local array in shared memory using the parameters explained before.
+\subsubsection*{Initial and V2 Exchange}
+To take advantage of shared memory, we modify both the \texttt{initialExchange} and \texttt{exchange\_V1} kernels. Specifically, we adjust the \texttt{initialExchange} from Version 1 to compute the index of the local array in shared memory using the previously explained parameters and formulas. It is important to calculate both the \texttt{global\_idx} and \texttt{idx} (local) values: \texttt{global\_idx} uses the \texttt{global\_tid}, while \texttt{idx} uses the \texttt{local\_tid}. The \texttt{idx} is used to determine the partner element within the same block, whereas the sorting order is still determined by the position in the global array (using \texttt{global\_idx}).
 \\
 \begin{lstlisting}
     int global_idx = (global_tid / distance) * distance * 2 + (global_tid % distance);
@@ -360,40 +353,50 @@ We adjust \texttt{initialExchange} of V1 Version algorithm, so that we determine
 The same strategy is followed in \texttt{exchange\_V2} to load the array in shared memory and to access the right elements determined by the Bitonic Sort algorithm.
 
 \section{Performance Analysis}
-We tested every version (V1, V2, V3) in Aristotle Cluster, specifically in gpu partition, using a \textbf{NVIDIA Tesla P100} GPU, to observe the efficiency and the acceleration of our implementation.
+To evaluate the efficiency of the implemented versions (V0,V1,V2) at a large scale, we performed testing on the GPU partition of the \textbf{Aristotelis Cluster}, using a \textbf{NVIDIA Tesla P100} GPU.
 
 \subsection{Execution Time}
-In Figure \ref{fig:qSort} we tested qSort and all versions (V1, V2, V3) with q=[20:27] elements. We can see that all the versions are much more faster than qSort especially when the number of elements increases.
+All versions (V0, V1, V2) were tested on varying input sizes, specifically for \( q = [20:27] \) elements, to assess scalability and performance against the qSort algorithm. As shown in Figure \ref{fig:qSort}, leveraging CUDA provides a significant speedup across all versions when compared to qSort, particularly as the number of elements increases. This highlights the substantial efficiency gains achieved through parallelization on the GPU.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{assets/execution_time_qsort.png}
+    \includegraphics[width=0.8\linewidth]{assets/execution_time_qsort.png}
     \caption{Execution time compared with qSort}
     \label{fig:qSort}
 \end{figure}
 
-In Figure \ref{fig:versions} we focus on the execution times among the different versions. When the number of elements increases, we observe a significant improvement between the three versions.
+Additionally, in Figure \ref{fig:versions}, we observe the impact of the different optimization techniques implemented across the versions. While Version 2 introduces shared memory optimization and delivers better performance than V0, it is slower than V1. This slowdown in Version 2 can likely be attributed to the overhead of memory copying and synchronization between global and shared memory, which, while reducing latency in many cases, also introduces additional complexity in certain configurations. Despite our efforts to further optimize, this trade-off in execution time persists, and unfortunately, we were unable to fully overcome this challenge to achieve faster execution than V1.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{assets/execution_time_versions.png}
+    \includegraphics[width=0.8\linewidth]{assets/execution_time_versions.png}
     \caption{Execution times of different versions}
     \label{fig:versions}
 \end{figure}
 
-\subsection{Speedup}
-Figure \ref{fig:speedup} shows the acceleration of each version in comparison with qSort.
+In summary, the specific optimizations introduced by the different versions that result in the above execution time acceleration are:
 
-\begin{figure}
+\begin{itemize}
+    \item \textbf{V0}: The baseline version that uses basic parallelization with CUDA, offering a significant speedup over the qSort implementation due to the parallel nature of the algorithm. Despite lacking advanced optimizations, V0 outperforms qSort by a large margin.
+    \item \textbf{V1}: Implements global synchronization optimizations, further reducing execution time compared to V0 by minimizing unnecessary waiting between threads.
+    \item \textbf{V2}: Utilizes shared memory to improve data access, but its performance is slightly hindered by synchronization overhead, making it slower than V1 in certain cases.
+\end{itemize}
+
+\subsection{Speedup}
+Figure \ref{fig:speedup} shows the acceleration of each version in comparison to qSort. Version V1 demonstrates the most significant acceleration, benefiting from the optimizations introduced, while Version V2, despite using shared memory, shows a slight performance drop compared to V1. This suggests that while shared memory can improve efficiency in some contexts, other factors like synchronization overhead or thread management may limit its overall performance in this case.
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{assets/speedup.png}
+    \includegraphics[width=0.8\linewidth]{assets/speedup.png}
     \caption{Speedup from qSort}
     \label{fig:speedup}
 \end{figure}
 
 \section{Conclusion}
-In conclusion the implementation of Bitonic Sort with CUDA has a significant improvement in execution time and can be extremely effective, when handling large datasets.
+In conclusion the implementation of Bitonic Sort with CUDA has a significant improvement in execution time and can be extremely effective when handling large datasets. By leveraging parallel processing capabilities of the GPU, the CUDA implementation vastly outperforms the sequential qSort, with further improvements observed in the optimized versions. The results underscore the effectiveness of utilizing GPU to enhance the scalability and performance of sorting algorithms.
 
+\section*{GitHub repository}
+You can find the full source code of our implementation in this \href {https://github.com/ekoumpar/bitonicSort_CUDA/tree/main}{Github repository}.
 
 \begin{thebibliography}{9}
 
@@ -402,5 +405,8 @@ In conclusion the implementation of Bitonic Sort with CUDA has a significant imp
 \href{https://developer.nvidia.com/blog/using-shared-memory-cuda-cc/}{here}
 \bibitem{CUDA picture} \textit{CUDA Memory Model}. Available \href{https://www.3dgep.com/cuda-memory-model/}{here}.
 \end{thebibliography}
+
+\section*{Acknowledgments}
+We would like to acknowledge the use of ChatGPT for assisting in editing parts of this report for clarity, as well as GitHub Copilot for its support in generating Python plotting scripts that contributed to the creation of the result figures.
 
 \end{document}
