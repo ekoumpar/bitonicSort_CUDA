@@ -186,8 +186,8 @@ In order to use the property mentioned before, \texttt{bitonicSort} is modified 
 
 \begin{itemize}
     \item \textbf{Initial sorting}: We make the exchanges for all groups of size less than 2048 using \texttt{initialExchange}. 
-    \item \textbf{Exchanges for distances greater than 1024}: After the initial sorting, when the groups become larger than 2048 and the distances become greater than 1024 we use \texttt{exchange\_V0} kernel (implemented in Version 0) to handle large distances (>1024).
-    \item \textbf{Exchanges for distances smaller than 1024}: Following the case explained above, we use the \texttt{exchange\_V1} kernel to handle small distances (<=1024).
+    \item \textbf{Exchanges for distances greater than 1024}: After the initial sorting, when the groups become larger than 2048 and the distances become greater than 1024 we use \texttt{exchange\_V0} kernel (implemented in Version 0) to handle large distances ($>$1024).
+    \item \textbf{Exchanges for distances smaller than 1024}: Following the case explained above, we use the \texttt{exchange\_V1} kernel to handle small distances ($<$=1024).
     
 \end{itemize}
 
